@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="utf-8"?>
+<modification>
+    <name>Product Requests</name>
+    <code>product_requests_v10</code>
+    <description>Improve customer retention by allowing requests for backordered products; automated notifications when the item restocks.</description>
+    <version>1.0</version>
+    <author>Angela</author>
+    <link>https://github.com/angela-d</link>
+
+    <file path="admin/controller/common/login.php">
+      <operation error="skip" info="Check for unconfirmed requests greater than 7 days and purge them.">
+        <search ><![CDATA[
+          $this->session->data['token'] = token(32);
+          ]]></search>
+        <add position="before"><![CDATA[
+          $this->load->model('report/product_request');
+          $this->model_report_product_request->purgeCheck();
+        ]]></add>
+      </operation>
+    </file>
+    <file path="admin/language/*/extension/dashboard/activity.php">
+      <operation error="skip" info="Language reference for the recent activity feed.">
+        <search ><![CDATA[
+          $_['text_customer_order_guest']    = '%s created a <a href="order_id=%d">new order</a>.';
+          ]]></search>
+        <add position="after"><![CDATA[
+          $_['text_customer_notify']		     = '<a href="product_id=%s">%s</a> requested updates on the %s';
+        ]]></add>
+      </operation>
+    </file>
+    <file path="admin/controller/extension/dashboard/activity.php">
+      <operation error="skip" info="Link the recent activity feed to the product requested.">
+        <search ><![CDATA[
+          'order_id=',
+          ]]></search>
+        <add position="after"><![CDATA[
+          'product_id=',
+        ]]></add>
+      </operation>
+      <operation error="skip" info="Write the link.">
+        <search ><![CDATA[
+          $this->url->link('sale/order/info', 'token=' . $this->session->data['token'] . '&order_id=', true),
+          ]]></search>
+        <add position="after"><![CDATA[
+          $this->url->link('catalog/product/edit', 'token=' . $this->session->data['token'] . '&product_id=', true),
+        ]]></add>
+      </operation>
+    </file>
+    <file path="admin/model/catalog/product.php">
+      <operation error="skip" info="If a product is deleted, delete all open requests, too.">
+        <search ><![CDATA[
+          $this->db->query("DELETE FROM " . DB_PREFIX . "product_image WHERE product_id = '" . (int)$product_id . "'");
+          ]]></search>
+        <add position="after"><![CDATA[
+          $this->db->query("DELETE FROM " . DB_PREFIX . "product_notification WHERE product_id = '" . (int)$product_id . "'");
+        ]]></add>
+      </operation>
+    </file>
+    <file path="admin/language/en-gb/common/column_left.php">
+      <operation error="skip" info="English language reference to reports tab for Product Requests.">
+        <search ><![CDATA[
+          $_['text_reports']                   = 'Reports';
+          ]]></search>
+        <add position="before"><![CDATA[
+          $_['text_product_requests']          = 'Product Requests';
+        ]]></add>
+      </operation>
+    </file>
+    <file path="admin/controller/common/column_left.php">
+      <operation error="skip" info="Adds a link to all requests under the Reports tab.">
+        <search ><![CDATA[
+          if ($report) {
+          ]]></search>
+        <add position="before"><![CDATA[
+          if ($this->user->hasPermission('access', 'report/product_request') && $this->config->get('product_request_status')) {
+    				$report[] = array(
+    					'name'	   => $this->language->get('text_product_requests'),
+    					'href'     => $this->url->link('report/product_request', 'token=' . $this->session->data['token'], true),
+    					'children' => array()
+    				);
+    			}
+        ]]></add>
+      </operation>
+    </file>
+    <file path="admin/controller/catalog/product.php">
+      <operation error="skip" info="Adds a call to notify the customer if the item is available for purchase; upon the item being added back in stock.">
+        <search ><![CDATA[
+          $this->model_catalog_product->editProduct($this->request->get['product_id'], $this->request->post);
+          ]]></search>
+        <add position="after"><![CDATA[
+          $this->load->model('report/product_request');
+
+          if (isset($this->request->post['quantity']) && $this->request->post['quantity'] >0 && $this->config->get('product_request_status')) {
+            $product_request = $this->model_report_product_request->checkRequests($this->request->get['product_id']);
+              if ($product_request >0){
+                $email_requests = $this->model_report_product_request->sendNotifications($this->request->get['product_id']);
+              }
+          }
+        ]]></add>
+      </operation>
+      <operation error="skip" info="See if any requests exist for this product and display a note to the admin if any are found.">
+        <search ><![CDATA[
+          if (isset($this->request->post['product_description'])) {
+          ]]></search>
+        <add position="before"><![CDATA[
+          $this->load->model('report/product_request');
+          $this->load->language('report/product_request');
+
+          if ($this->config->get('product_request_status')){
+            $check_notification_reqs   = isset($this->request->get['product_id']) ? $this->model_report_product_request->checkRequests($this->request->get['product_id']) : '';
+            $data['notification_reqs'] = $check_notification_reqs;
+
+            $data['text_banner'] = sprintf($this->language->get('text_banner'),$check_notification_reqs);
+          }
+        ]]></add>
+      </operation>
+    </file>
+    <file path="admin/view/template/catalog/product_form.tpl">
+      <operation error="skip" info="Displays a banner if this product has customers awaiting a stock notification.">
+        <search ><![CDATA[
+          <div id="content">
+            <div class="page-header">
+              <div class="container-fluid">
+          ]]></search>
+        <add position="after"><![CDATA[
+          <?php
+        		if ($notification_reqs >0){
+        			echo'<div class="alert alert-danger">'.sprintf($text_banner,$notification_reqs).'</div>';
+        		}
+        	?>
+        ]]></add>
+      </operation>
+    </file>
+    <file path="catalog/controller/product/product.php">
+      <operation error="skip" info="Adds a language file pull for the Product Request extension.">
+        <search ><![CDATA[
+          $this->load->language('product/product');
+          ]]></search>
+        <add position="before"><![CDATA[
+          $data['product_request_criteria'] = $this->config->get('product_request_criteria');
+          $this->load->language('extension/module/product_request');
+
+          $data['text_banner_signup'] = $this->language->get('text_banner_signup');
+          $data['button_notify']      = $this->language->get('button_notify');
+        ]]></add>
+      </operation>
+      <operation error="skip" info="Function to process a customer signup request.">
+        <search ><![CDATA[
+          public function write() {
+          ]]></search>
+        <add position="before"><![CDATA[
+          public function notifier() {
+        		$this->load->language('extension/module/product_request');
+
+        		$json = array();
+
+        		if ($this->request->server['REQUEST_METHOD'] == 'POST') {
+        			if ((utf8_strlen($this->request->post['notify']) < 9) || (utf8_strlen($this->request->post['notify']) > 75) ||($this->request->post['notify'] =='email@example.com') || !filter_var($this->request->post['notify'], FILTER_VALIDATE_EMAIL)) {
+        				$json['error'] = $this->language->get('error_email');
+        			}
+
+        			if (!empty($this->request->post['email'])) {
+        				$json['error'] = $this->language->get('error_honeypot');
+        			}
+
+        			if (!isset($json['error'])) {
+
+                $this->load->model('extension/module/product_request');
+        				$this->model_extension_module_product_request->addNotifier($this->request->get['product_id'], $this->request->post, $this->session->data['language']);
+
+        				$json['success'] = $this->language->get('text_notify_success');
+        			}
+        		}
+
+        		$this->response->addHeader('Content-Type: application/json');
+        		$this->response->setOutput(json_encode($json));
+        	}
+        ]]></add>
+      </operation>
+      <operation error="skip" info="Converts the stock status from lingual to numeric to allow multi-language capability.">
+        <search ><![CDATA[
+          $this->load->model('tool/image');
+          ]]></search>
+        <add position="before"><![CDATA[
+          $this->load->model('extension/module/product_request');
+    			$data['stock_status_total'] = $this->model_extension_module_product_request->getStatus($data['stock']);
+        ]]></add>
+      </operation>
+    </file>
+    <file path="catalog/view/theme/*/template/product/product.tpl">
+      <operation error="skip" info="A condition to switch the add to cart button with a requests box when an item is unavailable.">
+        <search ><![CDATA[
+          <button type="button" id="button-cart" data-loading-text="<?php echo $text_loading; ?>" class="btn btn-primary btn-lg btn-block"><?php echo $button_cart; ?></button>
+          ]]></search>
+        <add position="before"><![CDATA[
+          <?php if (!$stock_status_total){ ?>
+        ]]></add>
+      </operation>
+      <operation error="skip" info="Adds the product request signup to the product template.">
+        <search ><![CDATA[
+          <button type="button" id="button-cart" data-loading-text="<?php echo $text_loading; ?>" class="btn btn-primary btn-lg btn-block"><?php echo $button_cart; ?></button>
+          ]]></search>
+        <add position="after"><![CDATA[
+          <?php }else{ ?>
+            <div id="product-notify">
+              <?php echo $text_banner_signup; ?>
+      				<form class="form-horizontal" id="form-notify">
+      					<input type="text" name="notify" placeholder="email@example.com" id="input-notify" class="form-control" />
+      					<input type="hidden" name="email" value="" id="input-email" class="form-control" />
+      					<button type="button" id="button-notify" data-loading-text="<?php echo $text_loading; ?>" class="btn btn-default"><?php echo $button_notify; ?></button>
+      				</form>
+      			</div>
+            <?php } ?>
+        ]]></add>
+      </operation>
+      <operation error="skip" info="jQuery to process the form data on the template.">
+        <search ><![CDATA[
+          $('#button-cart').on('click', function() {
+          ]]></search>
+        <add position="before"><![CDATA[
+          $('#button-notify').on('click', function() {
+          	$.ajax({
+          		url: 'index.php?route=product/product/notifier&product_id=<?php echo $product_id; ?>',
+          		type: 'post',
+          		dataType: 'json',
+          		data: $("#form-notify").serialize(),
+          		beforeSend: function() {
+          			$('#button-notify').button('loading');
+          		},
+          		complete: function() {
+          			$('#button-notify').button('reset');
+          		},
+          		success: function(json) {
+          			$('.alert-success, .alert-danger').remove();
+
+          			if (json['error']) {
+          				$('#product-notify').before('<div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> ' + json['error'] + '</div>');
+          			}
+
+          			if (json['success']) {
+          				$('#product-notify').before('<div class="alert alert-success"><i class="fa fa-check-circle"></i> ' + json['success'] + '</div>');
+
+          				$('input[name=\'notify\']').val('');
+          				$('input[name=\'email\']').val('');
+          			}
+          		}
+          	});
+          });
+        ]]></add>
+      </operation>
+    </file>
+</modification>
