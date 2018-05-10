@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <modification>
     <name>Product Requests</name>
-    <code>product_requests_v10</code>
+    <code>product_requests_v101</code>
     <description>Improve customer retention by allowing requests for backordered products; automated notifications when the item restocks.</description>
-    <version>1.0</version>
+    <version>1.0.1</version>
     <author>Angela</author>
     <link>https://github.com/angela-d</link>
 
