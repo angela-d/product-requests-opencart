@@ -101,17 +101,19 @@ class ControllerExtensionModuleProductRequest extends Controller {
 
 		$data['product_request_statuses'] = $this->model_localisation_stock_status->getStockStatuses();
 
+		$product_request_criteria = $this->config->get('product_request_criteria');
 		if (isset($this->request->post['product_request_criteria'])) {
 			$data['product_request_criteria'] = $this->request->post['product_request_criteria'];
-		} elseif ($this->config->get('product_request_criteria')) {
+		} elseif ($product_request_criteria) {
 			$data['product_request_criteria'] = $this->config->get('product_request_criteria');
 		} else {
 			$data['product_request_criteria'] = array();
 		}
 
+		$product_request_status = $this->config->get('product_request_status');
 		if (isset($this->request->post['product_request_status'])) {
 			$data['product_request_status'] = $this->request->post['product_request_status'];
-		} elseif (!empty($this->config->get('product_request_status'))) {
+		} elseif (!empty($product_request_status)) {
 			$data['product_request_status'] = $this->config->get('product_request_status');
 		} else {
 			$data['product_request_status'] = '';
