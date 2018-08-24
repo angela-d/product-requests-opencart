@@ -1,4 +1,7 @@
 # Install Instructions
+
+**This plugin is not compatible with the release candidiate version of 2.3.0.2_rc; ensure you are running 2.3.0.2 by checking the footer of your admin panel for the version number.**
+
 If you already have the extension installed & will be upgrading to a new release, follow the [upgrade instructions](upgrade-instructions.md), instead.
 
 ![installing](./img/install.gif)
